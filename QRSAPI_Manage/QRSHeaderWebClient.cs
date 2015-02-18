@@ -17,7 +17,7 @@ namespace QRSAPI_Manage
         private readonly NameValueCollection _queryStringCollection;
         private readonly CookierAwareWebClient _QRSClient;
 
-        public QRSHeaderWebClient(string QRSserverUrl, string QRSVpHeaderName, string QRSVpHeaderVal)
+       public QRSHeaderWebClient(string QRSserverUrl, string QRSVpHeaderName, string QRSVpHeaderVal)
         {
             _QRSClient = new CookierAwareWebClient { Encoding = Encoding.UTF8 };
             //_QRSClient.UseDefaultCredentials = true;
@@ -125,9 +125,17 @@ namespace QRSAPI_Manage
             }
         }
 
-        public string PostFile(string endpoint, string filepath, Dictionary<string, string> queries)
+        public string PostFile(string endpoint, string filepath, Dictionary<string, string> queries, Dictionary<string, string> headerInfos)
         {
-            SetHeaders();
+
+            if (headerInfos != null)
+            {
+                SetHeaders(headerInfos);
+            }
+            else
+            {
+                SetHeaders();
+            }
 
             NameValueCollection queryStringCollection = new NameValueCollection(_queryStringCollection);
 
@@ -225,6 +233,17 @@ namespace QRSAPI_Manage
             _QRSClient.Headers.Add("X-QlikView-xrfkey", "ABCDEFG123456789");
             _QRSClient.Headers.Add(vpHeaderName, vpHeaderVal);
 
+        }
+
+        private void SetHeaders(Dictionary<string, string> headerInfos)
+        {
+            NameValueCollection _headerStringCollection = new NameValueCollection {};
+            NameValueCollection headerStringCollection = new NameValueCollection(_headerStringCollection);
+            _QRSClient.Headers.Clear();
+            foreach (KeyValuePair<string, string> header in headerInfos)
+                headerStringCollection.Add(header.Key, header.Value);
+            _QRSClient.Headers.Add(headerStringCollection);
+            _QRSClient.Headers.Add(vpHeaderName, vpHeaderVal);
         }
 
         private static string ParseWebException(WebException exception)

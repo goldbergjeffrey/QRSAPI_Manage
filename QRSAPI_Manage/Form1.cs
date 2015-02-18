@@ -15,17 +15,19 @@ namespace QRSAPI_Manage
     public partial class Form1 : Form
     {
         QRSDoStuff qrsConnect = new QRSDoStuff();
+        QlikSdkDoStuff sdkConnect = new QlikSdkDoStuff();
         Boolean connected;
+        private List<string> contentToUpload = new List<string>();
         public Form1()
         {
             InitializeComponent();
-            if(QRS_Manage.Default.serverUrl !=null)
+            if (QRS_Manage.Default.serverUrl != null)
             {
                 textBox1.Text = QRS_Manage.Default.serverUrl;
                 textBox2.Text = QRS_Manage.Default.serverHeaderName;
                 textBox3.Text = QRS_Manage.Default.serverHeaderValue;
             }
-            
+
         }
 
         private void connectQRS()
@@ -38,16 +40,16 @@ namespace QRSAPI_Manage
             }
             else
             {
-                MessageBox.Show("Please enter the appropriate credentials in to the QRS Connect section.","Alert", MessageBoxButtons.OK);
+                MessageBox.Show("Please enter the appropriate credentials in to the QRS Connect section.", "Alert", MessageBoxButtons.OK);
             }
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            connectQRS();
+                connectQRS();
         }
 
-        private void button3_Click(object sender, EventArgs e)
+        private void btnBrowseUploadFileName_Click(object sender, EventArgs e)
         {
             OpenFileDialog openFileDialog1 = new OpenFileDialog();
             openFileDialog1.InitialDirectory = Environment.SpecialFolder.MyDocuments + "\\Qlik\\Sense\\Apps";
@@ -59,19 +61,96 @@ namespace QRSAPI_Manage
             {
                 if (openFileDialog1.FileName != null)
                 {
-                    textBox5.Text = openFileDialog1.FileName;
+                    txtUploadFileName.Text = openFileDialog1.FileName;
+                }
+            }
+
+            if (txtUploadFileName.Text != null)
+            {
+                //this is where we need to access the app and find the content to upload
+                string strFileNameWithPath = txtUploadFileName.Text;
+                string[] strFileName = strFileNameWithPath.Split('\\');
+                string appName = strFileName[strFileName.Length - 1].ToString();
+                string result = "";
+                bool connectSenseDesktop = sdkConnect.SenseDesktopConnect(); 
+                if(connectSenseDesktop)
+                {
+                    result =  "Result from sdk connection: " + sdkConnect.connectResult + System.Environment.NewLine;
+                    result += sdkConnect.getApp(appName) + System.Environment.NewLine;
+                    sdkConnect.getImageList();
+                    //Now get the content list from the Qlik Sense server to make sure there are no duplicates
+                    if (!connected)
+                    {
+                        connectQRS();
+                    }
+                    textBox4.Text = "Content List for Default" + System.Environment.NewLine;
+                    textBox4.Text += "********************************" + System.Environment.NewLine;
+                    textBox4.Text += qrsConnect.getContentLibraryContents("Default") + System.Environment.NewLine;
+                    textBox4.Text += "********************************" + System.Environment.NewLine;
+                    List<string> contentItems = qrsConnect.contentFileNames(qrsConnect.contentItems);
+
+
+                    foreach (string item in sdkConnect.imgList)
+                    {
+                        string[] strFilePath = item.Split('\\');
+                        string itemName = strFilePath[strFilePath.Length - 1];
+
+                        if (!contentItems.Contains(itemName))
+                        {
+                            result += "item: " + item + " will be uploaded to the server" + System.Environment.NewLine;
+                            contentToUpload.Add(item);
+                        }
+                        else
+                        {
+                            result += "item: " + item + " will not be uploaded because it exists on the server" + System.Environment.NewLine;
+                        }
+                    }
+
+                    txtUploadInfo.Text = result;
+                }
+                else
+                {
+                    result = sdkConnect.connectResult;
+                    txtUploadInfo.Text = result;
                 }
             }
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void btnUploadFile_Click(object sender, EventArgs e)
         {
-            if (textBox5.Text != null)
+            if (txtUploadFileName.Text != null)
             {
+                //this is where we need to add the logic for properly uploading the app and the content.
+               
+                //Evaluate if app exists on server
 
-                textBox4.Text = qrsConnect.uploadApp(textBox5.Text);
+                //Evaluate if content exists on server
+                //Get the content from the server
+                textBox4.Text = qrsConnect.uploadApp(txtUploadFileName.Text);
+                foreach(string item in contentToUpload)
+                {
+                    textBox4.Text += qrsConnect.uploadFileToContentLibrary(item, "Default", true);
+                }
             }
         }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog openFileDialog2 = new OpenFileDialog();
+            openFileDialog2.InitialDirectory = Environment.SpecialFolder.MyDocuments + "\\Qlik\\Sense\\Content";
+            openFileDialog2.Filter = "bmp files (*.bmp)|*.bmp|png files (*.png)|*.png|All files (*.*)|*.*";
+            openFileDialog2.FilterIndex = 1;
+            openFileDialog2.RestoreDirectory = false;
+
+            if (openFileDialog2.ShowDialog() == DialogResult.OK)
+            {
+                if (openFileDialog2.FileName != null)
+                {
+                    //textBox6.Text = openFileDialog2.FileName;
+                }
+            }
+        }
+
 
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
         {
@@ -82,38 +161,132 @@ namespace QRSAPI_Manage
                 QRS_Manage.Default.serverHeaderValue = textBox3.Text;
                 QRS_Manage.Default.Save();
             }
+        }
+  
+        private void button6_Click(object sender, EventArgs e)
+        {
+            List<QRSDoStuff.stream> streams = qrsConnect.existingStreams;
+            List<QRSDoStuff.app> unpublishedApps = qrsConnect.unpublishedApps;
 
+            string selectedStreamID = streams.Find(x => x.name.Equals(comboBox1.Text)).ID;
+            string selectedAppID = unpublishedApps.Find(x => x.name.Equals(comboBox2.Text)).ID;
+
+            textBox4.Text = qrsConnect.publishApp(selectedAppID, selectedStreamID);
         }
 
-        private void toolStripButton1_Click(object sender, EventArgs e)
+        private void checkBox3_CheckedChanged(object sender, EventArgs e)
         {
-            panel1.Show();
-            panel2.Hide();
-            panel3.Hide();
-            panelTasks.Hide();
-        }
-
-        private void toolStripButton3_Click(object sender, EventArgs e)
-        {
-            panel1.Hide();
-            panel2.Show();
-            panel3.Hide();
-            panelTasks.Hide();
-            if (!connected)
+            if (checkBox3.Checked)
             {
-                connectQRS();
-            } 
+                label19.Show();
+                textBox11.Show();
+            }
+            else
+            {
+                label19.Hide();
+                textBox11.Hide();
+            }
+        }
+
+        private void btnCreateTask_Click(object sender, EventArgs e)
+        {
+            QRSDoStuff.app selectedApp = qrsConnect.getApp(qrsConnect.allApps.Find(x => x.name.Equals(comboBox3.Text)).ID);
+            string newTaskName = textBox12.Text;
+            textBox4.Text = qrsConnect.createTask(newTaskName, selectedApp);
+        }
+
+        private string numericString(ListBox selectedListBox)
+        {
+            string result = "";
+            for (int i = 0; i < selectedListBox.Items.Count; i++)
+            {
+                if (selectedListBox.GetSelected(i))
+                {
+                    result += i + ",";
+                }
+            }
+            result = result.Substring(0, result.Length - 1);
+            return result;
+        }
+
+        
+
+        private void btnCreateTrigger_Click(object sender, EventArgs e)
+        {
+            string name = "";
+            string schemaFilterDescription = "";
+            string incrementDescription = "";
+            int incrementOption;
+
+            string selectedAppID = qrsConnect.allApps.Find(x => x.name.Equals(comboBox3.Text)).ID;
+
+            
+            switch (tabControl2.SelectedIndex)
+            {
+                case 0:
+                    incrementOption = 0;
+                    incrementDescription = "0 0 0 0";
+                    schemaFilterDescription = "* * - * * * * *";
+                    name = "Once";
+                    textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
+                    break;
+                case 1:
+                    incrementOption = 1;
+                    incrementDescription = textBox8.Text + " " + textBox7.Text + " 0 0";
+                    schemaFilterDescription = "* * - * * * * *";
+                    name = "Hourly";
+                    textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
+                    break;
+                case 2:
+                    incrementOption = 2;
+                    incrementDescription = "0 0 " + textBox10.Text + " 0";
+                    schemaFilterDescription = "* * - * * * * *";
+                    name = "Daily";
+                    textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
+                    break;
+                case 3:
+                    incrementOption = 3;
+                    incrementDescription = "0 0 1 0";
+                    schemaFilterDescription = "* * - " + numericString(listBox2) + " " + textBox9.Text + " * * *";
+                    name = "Weekly";
+                    textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
+                    break;
+                case 4:
+                    incrementOption = 4;
+                    incrementDescription = "0 0 1 0";
+                    schemaFilterDescription = "* * - * * " + numericString(listBox3) + " * *";
+                    name = "Monthly";
+                    textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+
+        private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            switch (tabControl1.SelectedIndex)
+            {
+                case 0:
+                    break;
+                case 1:
+                    break;
+                case 2:
+                    popPublishAppTab();
+                    break;
+                case 3:
+                    popTaskTab();
+                    break;
+                default:
+                    break;
+            }
 
         }
 
-        private void toolStripButton2_Click(object sender, EventArgs e)
+
+        private void popPublishAppTab()
         {
-            panel1.Hide();
-            panel2.Hide();
-            panel3.Show();
-            panelTasks.Hide();
-
-
             if (!connected)
             {
                 connectQRS();
@@ -128,6 +301,8 @@ namespace QRSAPI_Manage
             textBox4.Text += qrsConnect.getListOfStreams() + System.Environment.NewLine;
             textBox4.Text += "********************************" + System.Environment.NewLine;
 
+            comboBox2.Items.Clear();
+            comboBox1.Items.Clear();
             List<string> appsToLoad = new List<string>();
             foreach (QRSDoStuff.app item in qrsConnect.unpublishedApps)
             {
@@ -145,34 +320,13 @@ namespace QRSAPI_Manage
             comboBox1.Items.Add("Please select a stream to publish to");
             comboBox1.Items.AddRange(streamsToLoad.ToArray());
             comboBox1.SelectedIndex = 0;
-
-
         }
 
-        private void button6_Click(object sender, EventArgs e)
+        private void popTaskTab()
         {
-            List<QRSDoStuff.stream> streams = qrsConnect.existingStreams;
-            List<QRSDoStuff.app> unpublishedApps = qrsConnect.unpublishedApps;
 
-            string selectedStreamID = streams.Find(x=> x.name.Equals(comboBox1.Text)).ID;
-            string selectedAppID = unpublishedApps.Find(x=> x.name.Equals(comboBox2.Text)).ID;
+            comboBox3.Items.Clear();
 
-            textBox4.Text = qrsConnect.publishApp(selectedAppID,selectedStreamID);
-
-            
-        }
-
-        private void toolStripButton5_Click(object sender, EventArgs e)
-        {
-            panel1.Hide();
-            panel2.Hide();
-            panel3.Hide();
-            panelTasks.Show();
-            label9.Show();
-            label20.Show();
-            textBox12.Show();
-            btnCreateTask.Show();
-            checkBox3.Show();
 
             if (!connected)
             {
@@ -189,165 +343,61 @@ namespace QRSAPI_Manage
             {
                 appsToLoad.Add(item.name);
             }
-            
+
             comboBox3.Items.Add("Please select an app to create a task");
             comboBox3.Items.AddRange(appsToLoad.ToArray());
             comboBox3.SelectedIndex = 0;
             comboBox3.Show();
-            
-            
-
         }
 
-        private void checkBox3_CheckedChanged(object sender, EventArgs e)
+        private void button2_Click(object sender, EventArgs e)
         {
-            if (checkBox3.Checked)
+            if (!connected)
             {
-                label19.Show();
-                textBox11.Show();
-                listTriggerType.Show();
+                connectQRS();
             }
-            else
-            {
-                label19.Hide();
-                textBox11.Hide();
-                listTriggerType.Hide();
-            }
+
+            textBox4.Text = "Content List for Default" + System.Environment.NewLine;
+            textBox4.Text += "********************************" + System.Environment.NewLine;
+            textBox4.Text += qrsConnect.getContentLibraryContents("Default") + System.Environment.NewLine;
+            textBox4.Text += "********************************" + System.Environment.NewLine;
+
         }
 
-        private void btnCreateTask_Click(object sender, EventArgs e)
-        {
-            QRSDoStuff.app selectedApp = qrsConnect.getApp(qrsConnect.allApps.Find(x => x.name.Equals(comboBox3.Text)).ID);
-            string newTaskName = textBox12.Text;
-            textBox4.Text = qrsConnect.createTask(newTaskName, selectedApp);
-        }
+ 
 
-        private string numericString(ListBox selectedListBox)
-        {
-            string result ="";
-            for(int i =0;i<selectedListBox.Items.Count;i++)
-            {
-                if (selectedListBox.GetSelected(i))
-                {
-                    result += i + ",";
-                }
-            }
-            result = result.Substring(0,result.Length-1);
-            return result;
-        }
-
-        private void listTriggerType_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            string valSelected = listTriggerType.SelectedItem.ToString();
-            if (valSelected != null)
-            {
-                switch (valSelected)
-                {
-                    case "Once":
-                        panelMonthly.Hide();
-                        panelWeekly.Hide();
-                        panelDaily.Hide();
-                        panelHourly.Hide();
-                        PanelOnce.Show();
-                        break;
-                    case "Hourly":
-                        panelMonthly.Hide();
-                        panelWeekly.Hide();
-                        panelDaily.Hide();
-                        panelHourly.Show();
-                        PanelOnce.Hide();
-                        break;
-                    case "Daily":
-                        PanelOnce.Hide();
-                        panelWeekly.Hide();
-                        panelDaily.Show();
-                        panelHourly.Hide();
-                        panelMonthly.Hide();
-                        break;
-                    case "Weekly":
-                        PanelOnce.Hide();
-                        panelWeekly.Show();
-                        panelDaily.Hide();
-                        panelHourly.Hide();
-                        panelMonthly.Hide();
-                        break;
-                    case "Monthly":
-                        PanelOnce.Hide();
-                        panelWeekly.Hide();
-                        panelDaily.Hide();
-                        panelHourly.Hide();
-                        panelMonthly.Show();
-                        break;
-                    default:
-                        break;
-                }
-            }
-            else
-            {
-                if (listTriggerType.Visible)
-                {
-                    MessageBox.Show("Please select a trigger interval", "Alert", MessageBoxButtons.OK);
-                }
-            }
-        }
-
-        private void btnCreateTrigger_Click(object sender, EventArgs e)
-        {
-            string valSelected = listTriggerType.SelectedItem.ToString();
-            string name = "";
-            string schemaFilterDescription = "";
-            string incrementDescription = "";
-            int incrementOption;
-
-            string selectedAppID = qrsConnect.allApps.Find(x => x.name.Equals(comboBox3.Text)).ID;
-
-            if (valSelected != null)
-            {
-                switch (valSelected)
-                {
-                    case "Once":
-                        incrementOption = 0;
-                        incrementDescription = "0 0 0 0";
-                        schemaFilterDescription = "* * - * * * * *";
-                        name = "Once";
-                        textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
-                        break;
-                    case "Hourly":
-                        incrementOption = 1;
-                        incrementDescription = textBox8.Text + " " + textBox7.Text + " 0 0";
-                        schemaFilterDescription = "* * - * * * * *";
-                        name = "Hourly";
-                        textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
-                        break;
-                    case "Daily":
-                        incrementOption = 2;
-                        incrementDescription = "0 0 " + textBox10.Text + " 0";
-                        schemaFilterDescription = "* * - * * * * *";
-                        name = "Daily";
-                        textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
-                        break;
-                    case "Weekly":
-                        incrementOption = 3;
-                        incrementDescription = "0 0 1 0";
-                        schemaFilterDescription = "* * - " + numericString(listBox2) + " " + textBox9.Text + " * * *";
-                        name = "Weekly";
-                        textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
-                        break;
-                    case "Monthly":
-                        incrementOption = 4;
-                        incrementDescription = "0 0 1 0";
-                        schemaFilterDescription = "* * - * * " + numericString(listBox3) + " * *";
-                        name = "Monthly";
-                        textBox4.Text = qrsConnect.createTrigger(textBox12.Text, qrsConnect.getApp(selectedAppID), name, schemaFilterDescription, incrementDescription, incrementOption);
-                        break;
-                    default:
-                        break;
-
-                }
-                qrsConnect.createdTask = null;
-            }            
-
-        }
     }
-    
+
+    #region commentedCode
+        //UPLOAD TO SELECTED CONTENT LIBRARY
+        /*           panel1.Hide();
+                          panel2.Show();
+                          panel3.Hide();
+                          panelTasks.Hide();
+                          if (!connected)
+                          {
+                              connectQRS();
+                          }
+                          cboContentLibrary.Items.Clear();
+                          textBox4.Text = "Content Libraries" + System.Environment.NewLine;
+                          textBox4.Text += "********************************" + System.Environment.NewLine;
+                          textBox4.Text += qrsConnect.getContentLibraryList() + System.Environment.NewLine;
+                          textBox4.Text += "********************************" + System.Environment.NewLine;
+                          textBox4.Text += System.Environment.NewLine;
+
+                          List<string> contentLibs = new List<string>();
+                          foreach (QRSDoStuff.ContentLibrary item in qrsConnect.existingContentLibraries)
+                          {
+                              contentLibs.Add(item.name);
+                          }
+                          cboContentLibrary.Items.Add("Please select a content library to upload to");
+                          cboContentLibrary.Items.AddRange(contentLibs.ToArray());
+                          cboContentLibrary.SelectedIndex = 0;
+        */
+
+
+    #endregion
+
+
 }
+

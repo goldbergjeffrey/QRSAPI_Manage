@@ -17,11 +17,14 @@ namespace QRSAPI_Manage
     {
         QRSHeaderWebClient qrsClient;
         public List<stream> existingStreams = new List<stream>();
+        public List<ContentLibrary> existingContentLibraries = new List<ContentLibrary>();
+        public List<ContentItem> contentItems = new List<ContentItem>();
         public List<app> unpublishedApps = new List<app>();
         public List<app> allApps = new List<app>();
         public task createdTask = new task();
 
         public Boolean qrsConnected = false;
+
 
         public string connectQrs(string serverUrl, string vpHeaderName, string vpHeaderVal)
         {
@@ -54,7 +57,7 @@ namespace QRSAPI_Manage
 
             try
             {
-                string postFileResult = qrsClient.PostFile("/qrs/app/upload", fileNameWithPath, _params);
+                string postFileResult = qrsClient.PostFile("/qrs/app/upload", fileNameWithPath, _params, null);
                 app appResult = JsonConvert.DeserializeObject<app>(postFileResult);
                 result = JsonConvert.SerializeObject(appResult, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
             }
@@ -70,13 +73,16 @@ namespace QRSAPI_Manage
         {
             Dictionary<string, string> _params = new Dictionary<string, string>();
 
-            _params.Add("name", libName);
-            _params.Add("type", libType);
+            _params.Add("privileges", "true");
+            ContentLibrary contentLib = new ContentLibrary();
+            contentLib.name = libName;
+            contentLib.type = libType;
+
             string result;
 
             try
             {
-                string postFileResult = qrsClient.Post("/qrs/content", libName, _params);
+                string postFileResult = qrsClient.Post("/qrs/contentlibrary", JsonConvert.SerializeObject(contentLib, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }), _params);
                 ContentLibrary contentLibResult = JsonConvert.DeserializeObject<ContentLibrary>(postFileResult);
                 result = JsonConvert.SerializeObject(contentLibResult, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
             }
@@ -88,8 +94,103 @@ namespace QRSAPI_Manage
             return result;
         }
 
+        public string getContentLibraryList()
+        {
+            string result = "";
+            existingContentLibraries.Clear();
+            try
+            {
+                string getRequestResult = qrsClient.Get("/qrs/contentlibrary");
+                Newtonsoft.Json.Linq.JArray foo = Newtonsoft.Json.Linq.JArray.Parse(getRequestResult);
+                for (int i = 0; i < foo.Count; i++)
+                {
+                    Newtonsoft.Json.Linq.JToken record = foo[i];
+                    ContentLibrary item = new ContentLibrary();
+                    item.ID = record["id"].ToString();
+                    item.name = record["name"].ToString();
+                    existingContentLibraries.Add(item);
+                    result += record.ToString() + System.Environment.NewLine;
+                }
+            }
+            catch (Exception ex)
+            {
+                result = ex.Message;
+            }
+            return result;
+        }
+
+        public string getContentLibraryContents(string contentLibraryName)
+        {
+            Dictionary<string, string> _queryParams = new Dictionary<string, string>();
+            _queryParams.Add("filter", "name eq '" + contentLibraryName + "'");
+            string result = "";
+            contentItems.Clear();
+            try
+            {
+                string getRequestResult = qrsClient.Get("/qrs/contentlibrary/full");
+                Newtonsoft.Json.Linq.JArray foo = Newtonsoft.Json.Linq.JArray.Parse(getRequestResult);
+                for (int i = 0; i < foo.Count; i++)
+                {
+                    Newtonsoft.Json.Linq.JToken record = foo[i];
+                    if (record["name"].ToString() == contentLibraryName)
+                    {
+                        Newtonsoft.Json.Linq.JToken[] contentList = record["references"].ToArray();
+                        for (int j = 0; j < contentList.Length; j++)
+                        {
+                            result += contentList[j]["externalPath"].ToString() + System.Environment.NewLine;
+                            ContentItem item = new ContentItem();
+                            item.ID = contentList[j]["id"].ToString();
+                            item.dataLocation = contentList[j]["dataLocation"].ToString();
+                            item.externalPath = contentList[j]["externalPath"].ToString();
+                            contentItems.Add(item);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result = ex.Message;
+            }
+            return result;
+        }
+
+        public string uploadFileToContentLibrary(string fileNameWithPath, string strContentLibrary, Boolean boolOverwrite)
+        {
+
+            string[] fileName = fileNameWithPath.Split('\\');
+            string[] contentName = fileName[fileName.Length - 1].Split('.');
+            
+
+            Dictionary<string, string> _queryParams = new Dictionary<string, string>();
+            _queryParams.Add("externalpath", fileName[fileName.Length - 1].ToString());
+            _queryParams.Add("overwrite", boolOverwrite.ToString());
+
+            Dictionary<string, string> _headerInfos = new Dictionary<string, string>();
+            _headerInfos.Add("Accept-Charset", "utf-8");
+            _headerInfos.Add("Accept", "application/json");
+            _headerInfos.Add("X-Qlik-xrfkey", "ABCDEFG123456789");
+            _headerInfos.Add("X-QlikView-xrfkey", "ABCDEFG123456789");
+            _headerInfos.Add("Content-Type", "application/vnd.qlik.sense.app");
+
+            string result;
+
+            try
+            {
+                string postFileResult = qrsClient.PostFile("/qrs/ContentLibrary/" + strContentLibrary + "/uploadfile", fileNameWithPath, _queryParams, _headerInfos);
+                
+                result = postFileResult;
+            }
+            catch (Exception ex)
+            {
+                result = ex.Message;
+            }
+
+            return result;
+        }
+
         public string getListOfStreams()
         {
+            existingStreams.Clear();
             string result ="";
             try
             {
@@ -116,6 +217,7 @@ namespace QRSAPI_Manage
         public string getUnpublishedApps()
         {
             string result = "";
+            unpublishedApps.Clear();
             Dictionary<string, string> filter = new Dictionary<string, string>();
             filter.Add("filter", "published eq false");
             try
@@ -143,6 +245,7 @@ namespace QRSAPI_Manage
         public string getAllApps()
         {
             string result = "";
+            allApps.Clear();
             try
             {
                 string getRequestResult = qrsClient.Get("/qrs/app");
@@ -212,7 +315,16 @@ namespace QRSAPI_Manage
             return result; 
         }
 
-        
+        public List<string> contentFileNames(List<ContentItem> contentItems)
+        {
+            List<string> result = new List<string>();
+            foreach (ContentItem item in contentItems)
+            {
+                string[] fileName = item.externalPath.Split('/');
+                result.Add(fileName[fileName.Length - 1]);
+            }
+            return result;
+        }
 
 
         public string createTrigger(string taskName, app app, string refreshInterval, string schemaFilterDescription, 
@@ -453,6 +565,14 @@ namespace QRSAPI_Manage
             public string ID { get; set; }
             public string name { get; set; }
             public string type { get; set; }
+
+        }
+
+        public class ContentItem
+        {
+            public string ID { get; set; }
+            public string dataLocation { get; set; }
+            public string externalPath { get; set; }
         }
 
         #endregion
