@@ -8,7 +8,6 @@ f:\my documents\visual studio 2012\Projects\QRSAPI_Manage\QRSAPI_Manage\obj\Debu
 f:\my documents\visual studio 2012\Projects\QRSAPI_Manage\QRSAPI_Manage\obj\Debug\QRSAPI_Manage.csproj.GenerateResource.Cache
 f:\my documents\visual studio 2012\Projects\QRSAPI_Manage\QRSAPI_Manage\obj\Debug\QRSAPI_Manage.exe
 f:\my documents\visual studio 2012\Projects\QRSAPI_Manage\QRSAPI_Manage\obj\Debug\QRSAPI_Manage.pdb
-f:\my documents\visual studio 2012\Projects\QRSAPI_Manage\QRSAPI_Manage\bin\Debug\WebSocket4Net.dll
 f:\my documents\visual studio 2012\Projects\QRSAPI_Manage\QRSAPI_Manage\bin\Debug\Qlik.Engine.dll
 f:\my documents\visual studio 2012\Projects\QRSAPI_Manage\QRSAPI_Manage\bin\Debug\Qlik.Sense.Client.dll
 f:\my documents\visual studio 2012\Projects\QRSAPI_Manage\QRSAPI_Manage\bin\Debug\Qlik.Sense.Logging.dll

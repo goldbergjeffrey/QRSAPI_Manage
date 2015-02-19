@@ -53,9 +53,6 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
-    <Reference Include="WebSocket4Net">
-      <HintPath>..\packages\WebSocket4Net.0.11\lib\net45\WebSocket4Net.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Form1.cs">
